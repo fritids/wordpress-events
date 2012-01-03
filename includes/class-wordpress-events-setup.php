@@ -36,7 +36,23 @@ class wordpress_events {
 	
 		wp_enqueue_script('jquery-ui-1.8.16.custom.min', WPE_url . '/js/jquery-ui-1.8.16.custom.min.js', array('jquery-ui-core'), 1.0 );
 		
-		wp_enqueue_script('timepicker', WPE_url . '/js/jquery-ui-timepicker-addon.js', array('jquery-ui-1.8.16.custom.min'), 1.0 );
+		wp_enqueue_script('timepicker', WPE_url . '/js/jquery-ui-timepicker-addon.js', array('jquery-ui-1.8.16.custom.min'), 1.0 ); 
+		
+		global $typenow;
+
+		if (empty($typenow) && !empty($_GET['post'])) {
+        	$post = get_post($_GET['post']);
+            $typenow = $post->post_type;
+       	}
+
+		if($typenow == 'events'){
+		
+			wp_enqueue_script('google_maps_api', 'http://maps.google.com/maps/api/js?sensor=true', '', 1.0 );
+		
+			wp_enqueue_script('location', WPE_url . '/js/location.js', '', 1.0); 
+
+		
+		}
 	
 	}
 	
@@ -140,14 +156,54 @@ class wordpress_events {
 				</tr>
 				
 				<tr valign="top">
-					<th scope="row">
-						<label for="venue_location">Venue Address</label>
-					</th>
-					<td>
-						
-						<textarea cols="100" rows="10" name="venue_location_address" id="venue_location_address"><?php echo get_post_meta($post->ID,'venue_location_address',true); ?></textarea>
 				
+					<th scope="row">
+						<label for="venue_name">Venue Address</label>
+					</th>
+				
+					<td>
+					
+						<textarea name="venue_location_address" id="member_info_address" cols="50" rows="9" class="input" ><?php echo get_post_meta($post->ID,'venue_location_address',true); ?></textarea>
+						
+						<br>
+						
+						<a class="showhide">Show/Hide map input</a>
+						
+						<div id="showhide">
+						
+							<input type="text" class="input" name="mi_location" id="member_info_location" value="<?php echo get_post_meta($post->ID,'mi_location',true); ?>" />
+							<input type="button" class="button-primary button" value="Lookup" onClick="codeAddress('YES')" />
+							<br>
+							<span class="description" style="float: left;">
+								Enter a location in any format and click the "Lookup" button.
+							</span>
+							<br>
+							<br>
+							<div id="map_canvas" style="float:left; width:500px; height:400px; margin-right: 10px;">
+							</div>
+							<div style="width: 35%;float:left;clear:left;" id="didyoumean">
+							</div>
+							<br style="clear:both;">
+							<br>
+							<br>
+							
+							<input type="hidden" name="lng" id="lng" value="<?php echo get_post_meta($post->ID,'lng',true); ?>" />
+							<input type="hidden" name="lat" id="lat" value="<?php echo get_post_meta($post->ID,'lat',true); ?>" />
+							<span class="member_info_label">Show Map?</span>
+							<select name="show_map" id="mi_show_map">
+								<option value="true" <?php if(get_post_meta($post->ID,'show_map',true) == 'true'){ echo 'selected'; } ?>>True</option>
+								<option value="false" <?php if(get_post_meta($post->ID,'show_map',true) == 'false'){ echo 'selected'; } ?>>False</option>
+							</select>
+							<span class="description">
+								Show a map of the event location?
+							</span>
+	
+						</div>
+						
+						<br style="clear:both;">
+					
 					</td>
+				
 				</tr>
 				
 				<tr valign="top">
@@ -192,6 +248,12 @@ class wordpress_events {
 		  	update_post_meta($post_id, 'events_tickets', $_POST['events_tickets']);
 		  	
 		  	update_post_meta($post_id, 'events_venue_name', $_POST['events_venue_name']);
+		  	
+		  	update_post_meta($post_id, 'lat', $_POST['lat']);
+			
+			update_post_meta($post_id, 'lng', $_POST['lng']);
+			
+			update_post_meta($post_id, 'show_map', $_POST['show_map']);
 		  	
 		}
 	
@@ -313,7 +375,7 @@ class wordpress_events {
 					
 					</div>
 			
-					<a href="#TB_inline?height=700&width=700&inlineId=' .str_replace(' ', '', get_the_title()). '&modal=true" title="' . get_the_title() . '" class="light-blue thickbox">'
+					<a href="#TB_inline?height=400&width=700&inlineId=' .str_replace(' ', '', get_the_title()). '&modal=true" title="' . get_the_title() . '" class="light-blue thickbox">'
 				
 						.get_the_title().
 				
