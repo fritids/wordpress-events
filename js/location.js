@@ -2,10 +2,11 @@ jQuery(document).ready(function () {
 	
 	initialize();
 	
-	//jQuery('#showhide').hide();
+	jQuery('#showhide').hide();
 	
 	jQuery('.showhide').click(function(){
 		jQuery('#showhide').toggle();
+		google.maps.event.trigger(map, 'resize'); 
 	});
 		
 });

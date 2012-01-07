@@ -167,7 +167,7 @@ class wordpress_events {
 						
 						<br>
 						
-						<a class="showhide">Show/Hide map input</a>
+						<a class="showhide" style="cursor:pointer;">Show/Hide map input</a>
 						
 						<div id="showhide">
 						
@@ -191,6 +191,7 @@ class wordpress_events {
 							<input type="hidden" name="lat" id="lat" value="<?php echo get_post_meta($post->ID,'lat',true); ?>" />
 							<span class="member_info_label">Show Map?</span>
 							<select name="show_map" id="mi_show_map">
+								<option value="">Please select</option>
 								<option value="true" <?php if(get_post_meta($post->ID,'show_map',true) == 'true'){ echo 'selected'; } ?>>True</option>
 								<option value="false" <?php if(get_post_meta($post->ID,'show_map',true) == 'false'){ echo 'selected'; } ?>>False</option>
 							</select>
@@ -333,6 +334,8 @@ class wordpress_events {
 		
 		if ($pageposts){
 		
+			$i = 0;
+		
 			foreach ($pageposts as $post){ 
 			
 				setup_postdata($post); 
@@ -363,7 +366,9 @@ class wordpress_events {
 						
 						<span class="float-right event_single_right">
 						
-							<p>'.get_post_meta(get_the_ID(),'venue_location_address',true).'</p>';
+							<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>
+														
+							<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
 							
 							if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
 							
@@ -375,7 +380,7 @@ class wordpress_events {
 					
 					</div>
 			
-					<a href="#TB_inline?height=400&width=700&inlineId=' .str_replace(' ', '', get_the_title()). '&modal=true" title="' . get_the_title() . '" class="light-blue thickbox">'
+					<a onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '', get_the_title()) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
 				
 						.get_the_title().
 				
@@ -383,6 +388,7 @@ class wordpress_events {
 						<span class="grey_666 small">
 						
 							<p>'.get_post_meta(get_the_ID(),'events_venue_name',true).'</p>
+							
 							<p>'.get_the_excerpt().'</p>
 					
 						</span>
@@ -394,6 +400,61 @@ class wordpress_events {
 				<br style="clear:both" />
 				
 				<br>';
+		
+				if(get_post_meta($post->ID,'show_map',true) == 'true'){ 
+				
+					$calendar .= '
+				
+					<input type="hidden" name="lng" id="lng' . $i . '" value="' . get_post_meta($post->ID,'lng',true) . '" />
+					<input type="hidden" name="lat" id="lat' . $i . '" value="' . get_post_meta($post->ID,'lat',true) . '" />
+				
+					<script src="http://maps.google.com/maps/api/js?sensor=true" type="text/javascript"></script>
+					
+					<script type="text/javascript">
+					
+						var geocoder;
+						var map;
+						var marker;
+						var markersArray = [];
+					
+						geocoder = new google.maps.Geocoder();
+						
+							var latlng = new google.maps.LatLng(jQuery(\'#lat' . $i .'\').val(),jQuery(\'#lng' . $i . '\').val());
+						
+							var myOptions = {
+					  			zoom: 15,
+					  			center: latlng,
+					  			mapTypeControl: false,
+					  			mapTypeId: google.maps.MapTypeId.ROADMAP
+							}
+							map = new google.maps.Map(document.getElementById("map_canvas' . $i . '"), myOptions);
+						    
+						    geocoder.geocode({\'latLng\': latlng}, function(results, status) {
+						      if (status == google.maps.GeocoderStatus.OK) {
+						  		//console.log(results);
+						  			
+								if (markersArray){
+							        for (i in markersArray){
+							            markersArray[i].setMap(null);
+							        }
+							    }
+
+						    	var marker = new google.maps.Marker({
+						        	map: map, 
+						        	position: results[0].geometry.location   
+						    	});
+						    	markersArray.push(marker);     	
+						    	
+						      } else {
+						        alert("Geocoder failed due to: " + status);
+						      }
+							});
+												
+					</script>';
+				
+				}
+				
+				$i++;
 			
 			} 
 		
@@ -425,6 +486,28 @@ class wordpress_events {
 		$calendar.= '</tr>';
 		
 		$calendar.= '</table>';
+		
+		$calendar .= '
+		
+			<script type="text/javascript">
+			
+				function resize(lat, lng, id){
+				
+					tb_show("HAI","#TB_inline?height=500&width=700&inlineId=" + id + "&modal=true",null);
+				
+					google.maps.event.trigger(map, \'resize\'); 
+					
+					var darwin = new google.maps.LatLng(lat,lng);
+					
+					map.setCenter(darwin);
+				
+					return false;
+				
+				}
+			
+			</script>
+		
+		';
 		
 		return $calendar;
 		
