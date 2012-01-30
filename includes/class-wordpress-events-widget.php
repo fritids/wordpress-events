@@ -1,8 +1,8 @@
 <?php
 
-add_action( 'widgets_init', 'register_widgets' );
+add_action( 'widgets_init', 'wp_events_register_widgets' );
 
-function register_widgets(){
+function wp_events_register_widgets(){
 
 	register_widget("Events");
 
@@ -58,7 +58,7 @@ class Events extends WP_Widget {
 						
 							<?php setup_postdata($post); ?>
 							
-							<?php echo '<div id="' . str_replace(' ', '', get_the_title()) . '" style="display:none;">
+							<?php echo '<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '" style="display:none;">
 					
 								<a class="close_x" onclick="self.parent.tb_remove();">X</a>
 								

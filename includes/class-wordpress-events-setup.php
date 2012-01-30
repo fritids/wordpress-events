@@ -22,6 +22,14 @@ class wordpress_events {
 					
 		add_action( 'init', array( &$this, 'add_custom_post_type' ) );
 		
+		add_filter('manage_edit-events_columns', array( &$this, 'add_new_events_columns' ));
+		
+		add_action('manage_events_posts_custom_column', array( &$this, 'manage_events_columns' ), 10, 2);
+		
+		add_filter('pre_get_posts', array( &$this, 'show_events_for_current_user_only' ));
+		
+		add_filter('views_edit-events', array( &$this, 'remove_post_counts' ));
+		
 		add_action( 'admin_init', array( &$this, 'add_meta_boxes' ) );
 		
 		add_action( 'save_post', array( &$this, 'save_meta_box_data' ), 1, 2 );
@@ -101,14 +109,133 @@ class wordpress_events {
 			'query_var' => true,
 			'menu_icon' => WPE_url . '/img/events.png',
 			'rewrite' => true,
-			'capability_type' => 'post',
+			//'map_meta_cap' => true,
+			'capability_type' => 'calendar',
+			'capabilities' => array(
+				'publish_posts' => 'publish_calendars',
+				'edit_posts' => 'edit_calendars',
+				'edit_others_posts' => 'edit_others_calendars',
+				'delete_posts' => 'delete_calendars',
+				'delete_others_posts' => 'delete_others_calendars',
+				'read_private_posts' => 'read_private_calendars',
+				'edit_post' => 'edit_calendar',
+				'delete_post' => 'delete_calendar',
+				'read_post' => 'read_calendar',
+			),
 			'has_archive' => true, 
 			'hierarchical' => false,
 			'menu_position' => null,
-			'supports' => array('title', 'editor')
+			'supports' => array('title', 'editor', 'thumbnail')
 		); 
 		
 		register_post_type('events',$args);
+	}
+	
+	function add_new_events_columns($events_columns) {
+	
+		$new_columns['cb'] = '<input type="checkbox" />';
+ 
+		$new_columns['date_time'] = 'Event Date';
+		
+		$new_columns['title'] = 'Event Name';
+ 
+		return $new_columns;
+		
+	}
+	
+	function manage_events_columns($column_name, $id) {
+	
+		global $wpdb;
+		switch ($column_name) {
+		case 'date_time':
+			$events_date_meta = get_post_meta($id,'events_date',true);
+			if($events_date_meta == ''){
+				$events_date = '';
+				$events_time = '';
+			}else{
+				$events_date = date('jS \o\f F Y', $events_date_meta);
+				$events_time = date('g.ia', $events_date_meta);
+			}
+			echo $events_date . '<br>' . $events_time; 
+		        break;
+		default:
+			break;
+		} // end switch
+	}	
+	
+	function show_events_for_current_user_only($query) {
+	
+/*
+	echo '<pre>';
+	print_r($query);
+	echo '</pre>';
+*/
+	 
+	  if($query->is_admin) {
+	 
+	        if ($query->get('post_type') == 'events'){
+	        
+	        	$current_user = wp_get_current_user();
+	        	
+	        	$admin = false;
+	        	
+	        	foreach($current_user->roles as $key => $val){
+	        		if($val == 'administrator'){
+	        			$admin = true;
+	        		}
+	        	}
+	        	
+	        	if(!$admin){
+			        
+					//$query->set('meta_key', 'events_user_id');
+	          		//$query->set('meta_value', $current_user->ID);
+	        
+	        	}
+	        		        	
+	        	//$time = time()-(2*7*24*60*60);
+	        	
+		        //$query->set('meta_key', 'events_date');
+		        //$query->set('orderby', 'meta_value_num');
+		        //$query->set('order', 'ASC');
+				
+				//$meta = array(
+            	//	array(
+            	//		'key' => 'events_date',
+            	//		'value' => $time,
+            	//		'compare' => '>='
+            	//	)
+        		//);
+        		
+        		//$query->set('meta_query',$meta );
+		        
+	        }
+	  }
+	  
+	  return $query;
+	
+	}
+	
+	function remove_post_counts($posts_count_disp){
+	
+		$current_user = wp_get_current_user();
+	        	
+    	$admin = false;
+    	
+    	foreach($current_user->roles as $key => $val){
+    		if($val == 'administrator'){
+    			$admin = true;
+    		}
+    	}
+    	
+    	if(!$admin){
+	
+    		unset($posts_count_disp['all']);
+   			unset($posts_count_disp['publish']);
+   			unset($posts_count_disp['draft']);
+ 
+ 		}
+ 
+        return $posts_count_disp;
 	
 	}
 	
@@ -128,7 +255,13 @@ class wordpress_events {
 	function events_details(){
 	
 		global $post;
+		
+		$current_user = wp_get_current_user(); ?>
+				
+		<input type="text" id="events_user_id" name="events_user_id" value="<?php echo get_post_meta($post->ID,'events_user_id',true);  ?>" />
 	
+		<?php
+		
 		wp_nonce_field( plugin_basename( __FILE__ ), 'events_nonce' );
 		
 		?>
@@ -212,7 +345,17 @@ class wordpress_events {
 						<label for="date">Date and time</label>
 					</th>
 					<td>
-						<input class="datepicker" type="text" id="events_date" name="events_date" value="<?php echo get_post_meta($post->ID,'events_date',true); ?>" size="25" />
+						<?php if(get_post_meta($post->ID,'events_date',true) != ''){
+						
+							$date = date('d-m-Y @ H:i', get_post_meta($post->ID,'events_date',true)); 
+						
+						}else{
+						
+							$date = '';
+						
+						} ?>
+						
+						<input class="datepicker" type="text" id="events_date" name="events_date" value="<?php echo $date; ?>" size="25" />
 					</td>
 				</tr>
 				
@@ -243,8 +386,10 @@ class wordpress_events {
 		  		return;
 		  		
 		  	update_post_meta($post_id, 'venue_location_address', $_POST['venue_location_address']);
+		  	
+		  	$date = DateTime::createFromFormat('d-m-Y @ H:i', $_POST['events_date']);
 		  			  	
-		  	update_post_meta($post_id, 'events_date', $_POST['events_date']);
+		  	update_post_meta($post_id, 'events_date', strtotime($date->format(DATE_RFC3339)));
 		  	
 		  	update_post_meta($post_id, 'events_tickets', $_POST['events_tickets']);
 		  	
@@ -255,13 +400,32 @@ class wordpress_events {
 			update_post_meta($post_id, 'lng', $_POST['lng']);
 			
 			update_post_meta($post_id, 'show_map', $_POST['show_map']);
-		  	
+			
+			update_post_meta($post_id, 'events_user_id', $_POST['events_user_id']);
+
+			$postarr = get_post($post_id,'ARRAY_A');
+									
+			if($postarr['post_date'] != $date->format('Y-m-d H:i:s')){
+			
+				$postarr['post_date'] = $date->format(DATE_RFC3339);
+
+				$post_id = wp_update_post($postarr);
+			
+			}
+
+					  	
 		}
 	
 	}
 	
 	function display_calendar($atts){ 
-	
+		
+		if(!isset($atts['user'])){
+			$user = 'all';
+		}else{
+			$user = $atts['user'];
+		}
+			
 		if(isset($_GET['m'])){
 			$month = intval($_GET['m']);
 		}else{
@@ -314,6 +478,9 @@ class wordpress_events {
 		  $calendar.= '<div class="day-number">'.$list_day.'</div>';
 				  
 		global $post, $wpdb; 
+		
+		$start = strtotime($year."-".$month."-".$list_day."-00-00");
+		$end = strtotime($year."-".$month."-".$list_day."-23-59");
 					
 		$querystr = "
 		SELECT $wpdb->posts.* , $wpdb->postmeta.* 
@@ -322,8 +489,8 @@ class wordpress_events {
 		AND $wpdb->postmeta.meta_key = 'events_date' 
 		AND $wpdb->posts.post_status = 'publish' 
 		AND $wpdb->posts.post_type = 'events' 
-		AND STR_TO_DATE($wpdb->postmeta.meta_value ,'%d-%m-%Y @ %H:%i') >= STR_TO_DATE('" .$year."-".$month."-".$list_day."-00-00', '%Y-%m-%d-%H-%i' )
-		AND STR_TO_DATE($wpdb->postmeta.meta_value ,'%d-%m-%Y @ %H:%i') <= STR_TO_DATE('" .$year."-".$month."-".$list_day."-23-59', '%Y-%m-%d-%H-%i' )
+		AND $wpdb->postmeta.meta_value >= " . $start . "
+		AND $wpdb->postmeta.meta_value <= " . $end . "
 		";
 		
 		//echo $querystr.'<br><br>';
@@ -339,118 +506,149 @@ class wordpress_events {
 			foreach ($pageposts as $post){ 
 			
 				setup_postdata($post); 
+				
+				if($user == 'all' || $user == get_post_meta(get_the_ID(),'events_user_id',true)){
 									
-				$calendar.= '<span class="float-left">
+					$calendar.= '<span class="float-left">
+					
+						<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '" style="display:none;">
+						
+							<div class="" style="position: absolute;right: 40px; top: 11px;">
+						
+								<!-- AddThis Button BEGIN -->
+								<div class="addthis_toolbox addthis_default_style ">
+								<a class="addthis_button_facebook" addthis:title="<?php the_title(); ?>"></a>
+								<a class="addthis_button_twitter"></a>
+								<a class="addthis_button_google_plusone" g:plusone:annotation="none"></a>
+								<a class="addthis_button_tumblr"></a>
+								<a class="addthis_button_email"></a>
+								</div>
+								<script type="text/javascript">
+									var addthis_config = {"data_track_addressbar":false};
 				
-					<div id="' . str_replace(' ', '', get_the_title()) . '" style="display:none;">
-					
-						<a class="close_x" onclick="self.parent.tb_remove();">X</a>
+								</script>
+								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
+								<!-- AddThis Button END -->
+				
+							</div>
 						
-						<span class="float-left event_single_left">
-					
-						<h1>' . get_the_title() . '</h1>
+							<a class="close_x" onclick="self.parent.tb_remove();">X</a>
+							
+							<span class="float-left event_single_left">
 						
-						<br>
+							<h1>' . get_the_title() . '</h1>
+							
+							<br>
+							
+							<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
+							
+							<br>
+							
+							<h3>' . date('jS \o\f F Y. g.ia', get_post_meta(get_the_ID(),'events_date',true)) . '</h3>';
+							
+							if(has_post_thumbnail()) { 
+								
+								$image_id = get_post_thumbnail_id();  
+								$image_url = wp_get_attachment_image_src($image_id,'full');  
+								$image_url = $image_url[0];  
 						
-						<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
-						
-						<br>
-						
-						<h3>' . get_post_meta(get_the_ID(),'events_date',true) . '</h3>
-						
-						<br>
-						
-						<p>' . get_the_content() . '</p>
-						
-						</span>
-						
-						<span class="float-right event_single_right">
-						
-							<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>
+								$calendar.= '<br><img class="single_image" src="'. WPE_url .'/timthumb/timthumb.php?src='.$image_url .'&w=280" /><br>';
+									
+							}
+							
+							$calendar.= '<br>
+							
+							<p>' . nl2br( get_the_content() ) . '</p>
+							
+							</span>
+							
+							<span class="float-right event_single_right">
+							
+								<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>
+															
+								<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
+								
+								if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
+								
+									$calendar.= '<p><span class="ticket"><a href="' . get_post_meta(get_the_ID(),'events_tickets',true) . '">Tickets for ' . get_the_title() . '</a></span></p>';
+								
+								}
 														
-							<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
+							$calendar.= '</span>
+						
+						</div>
+				
+						<a onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '', get_the_title()) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
+					
+							.get_the_title().
+					
+							'<br>
+							<span class="grey_666 small">
 							
-							if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
-							
-								$calendar.= '<p><span class="ticket"><a href="' . get_post_meta(get_the_ID(),'events_tickets',true) . '">Tickets for ' . get_the_title() . '</a></span></p>';
-							
-							}
+								<p>'.get_post_meta(get_the_ID(),'events_venue_name',true).'</p>
 													
-						$calendar.= '</span>
+							</span>
+						
+						</a>
 					
-					</div>
+					</span>
+					
+					<br style="clear:both" />
+					
+					<br>';
 			
-					<a onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '', get_the_title()) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
-				
-						.get_the_title().
-				
-						'<br>
-						<span class="grey_666 small">
+					if(get_post_meta($post->ID,'show_map',true) == 'true'){ 
+					
+						$calendar .= '
+					
+						<input type="hidden" name="lng" id="lng' . $i . '" value="' . get_post_meta($post->ID,'lng',true) . '" />
+						<input type="hidden" name="lat" id="lat' . $i . '" value="' . get_post_meta($post->ID,'lat',true) . '" />
+					
+						<script src="http://maps.google.com/maps/api/js?sensor=true" type="text/javascript"></script>
 						
-							<p>'.get_post_meta(get_the_ID(),'events_venue_name',true).'</p>
+						<script type="text/javascript">
+						
+							var geocoder;
+							var map;
+							var marker;
+							var markersArray = [];
+						
+							geocoder = new google.maps.Geocoder();
 							
-							<p>'.get_the_excerpt().'</p>
+								var latlng = new google.maps.LatLng(jQuery(\'#lat' . $i .'\').val(),jQuery(\'#lng' . $i . '\').val());
+							
+								var myOptions = {
+						  			zoom: 15,
+						  			center: latlng,
+						  			mapTypeControl: false,
+						  			mapTypeId: google.maps.MapTypeId.ROADMAP
+								}
+								map = new google.maps.Map(document.getElementById("map_canvas' . $i . '"), myOptions);
+							    
+							    geocoder.geocode({\'latLng\': latlng}, function(results, status) {
+							      if (status == google.maps.GeocoderStatus.OK) {
+							  		//console.log(results);
+							  			
+									if (markersArray){
+								        for (i in markersArray){
+								            markersArray[i].setMap(null);
+								        }
+								    }
+	
+							    	var marker = new google.maps.Marker({
+							        	map: map, 
+							        	position: results[0].geometry.location   
+							    	});
+							    	markersArray.push(marker);     	
+							    	
+							      } else {
+							        alert("Geocoder failed due to: " + status);
+							      }
+								});
+													
+						</script>';
 					
-						</span>
-					
-					</a>
-				
-				</span>
-				
-				<br style="clear:both" />
-				
-				<br>';
-		
-				if(get_post_meta($post->ID,'show_map',true) == 'true'){ 
-				
-					$calendar .= '
-				
-					<input type="hidden" name="lng" id="lng' . $i . '" value="' . get_post_meta($post->ID,'lng',true) . '" />
-					<input type="hidden" name="lat" id="lat' . $i . '" value="' . get_post_meta($post->ID,'lat',true) . '" />
-				
-					<script src="http://maps.google.com/maps/api/js?sensor=true" type="text/javascript"></script>
-					
-					<script type="text/javascript">
-					
-						var geocoder;
-						var map;
-						var marker;
-						var markersArray = [];
-					
-						geocoder = new google.maps.Geocoder();
-						
-							var latlng = new google.maps.LatLng(jQuery(\'#lat' . $i .'\').val(),jQuery(\'#lng' . $i . '\').val());
-						
-							var myOptions = {
-					  			zoom: 15,
-					  			center: latlng,
-					  			mapTypeControl: false,
-					  			mapTypeId: google.maps.MapTypeId.ROADMAP
-							}
-							map = new google.maps.Map(document.getElementById("map_canvas' . $i . '"), myOptions);
-						    
-						    geocoder.geocode({\'latLng\': latlng}, function(results, status) {
-						      if (status == google.maps.GeocoderStatus.OK) {
-						  		//console.log(results);
-						  			
-								if (markersArray){
-							        for (i in markersArray){
-							            markersArray[i].setMap(null);
-							        }
-							    }
-
-						    	var marker = new google.maps.Marker({
-						        	map: map, 
-						        	position: results[0].geometry.location   
-						    	});
-						    	markersArray.push(marker);     	
-						    	
-						      } else {
-						        alert("Geocoder failed due to: " + status);
-						      }
-							});
-												
-					</script>';
+					}
 				
 				}
 				
@@ -516,5 +714,34 @@ class wordpress_events {
 	}
 	
 }
+
+remove_role('personal_calendar');
+
+add_role('personal_calendar', 'Calendar User', array(
+    'read' => true, 
+    'edit_posts' => false,
+    'delete_posts' => false, 
+    'edit_calendar' => true,
+    'edit_calendars' => true,
+    'edit_others_posts' => false,
+    'publish_calendars' => true
+));
+
+//grab the admin role
+$adapt_admin = get_role('administrator');
+
+//and give them permissions for our plugin too
+$adapt_admin -> add_cap('delete_calendar');
+$adapt_admin -> add_cap('delete_calendars');
+$adapt_admin -> add_cap('delete_private_calendars');
+$adapt_admin -> add_cap('delete_published_calendars');
+$adapt_admin -> add_cap('edit_calendar');
+$adapt_admin -> add_cap('edit_calendars');
+$adapt_admin -> add_cap('edit_private_calendars');
+$adapt_admin -> add_cap('edit_published_calendars');
+$adapt_admin -> add_cap('publish_calendars');
+$adapt_admin -> add_cap('read_calendar');
+$adapt_admin -> add_cap('read_private_calendars'); 
+$adapt_admin -> add_cap('edit_others_calendars'); 
 
 ?>
