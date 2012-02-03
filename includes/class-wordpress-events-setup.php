@@ -419,6 +419,26 @@ class wordpress_events {
 	}
 	
 	function display_calendar($atts){ 
+	
+		if(isset($_GET['idd'])){
+				
+			 echo '<script type="text/javascript">
+						
+				jQuery(document).ready(function() {
+					
+					//tb_show("HAI","#TB_inline?height=500&width=700&inlineId=wwwwwwww", "");
+					
+					//google.maps.event.trigger(map, \'resize\'); 
+						
+					//var darwin = new google.maps.LatLng(' . get_post_meta($_GET['idd'],'lat',true) . ',' . get_post_meta($_GET['idd'],'lng',true) . ');
+						
+					//map.setCenter(darwin);
+					
+				})
+			
+			</script>';
+				
+		}
 		
 		if(!isset($atts['user'])){
 			$user = 'all';
@@ -426,23 +446,23 @@ class wordpress_events {
 			$user = $atts['user'];
 		}
 			
-		if(isset($_GET['m'])){
-			$month = intval($_GET['m']);
+		if(isset($_GET['mm'])){
+			$month = intval($_GET['mm']);
 		}else{
 			$month = date("m");
 		}
 		
-		if(isset($_GET['y'])){
-			$year = intval($_GET['y']);
+		if(isset($_GET['yy'])){
+			$year = intval($_GET['yy']);
 		}else{
 			$year = date("Y");
 		} ?>
 	
 		<span class="events_date_now"><?php echo date("F Y",strtotime($year."-".$month."-01")); ?></span>
 	
-		<span class="float-left calendar_nav"><a href="<?php echo the_permalink(); ?><?php echo date('&\m=m&\y=Y',strtotime($year."-".$month."-01 -1 months")); ?>"><< <?php echo date("F Y",strtotime($year."-".$month."-01 -1 months")); ?></a></span>
+		<span class="float-left calendar_nav"><a href="<?php echo add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 -1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 -1 months")) ), the_permalink() ); ?>"><< <?php echo date("F Y",strtotime($year."-".$month."-01 -1 months")); ?></a></span>
 		
-		<span class="float-right calendar_nav"><a href="<?php echo the_permalink(); ?><?php echo date('&\m=m&\y=Y',strtotime($year."-".$month."-01 +1 months")); ?>"><?php echo date("F Y",strtotime($year."-".$month."-01 +1 months")) ?> >></a></span>
+		<span class="float-right calendar_nav"><a href="<?php echo add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 +1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 +1 months")) ), the_permalink() ); ?>"><?php echo date("F Y",strtotime($year."-".$month."-01 +1 months")) ?> >></a></span>
 		
 		<br style="clear:both;">
 
@@ -495,6 +515,8 @@ class wordpress_events {
 		
 		//echo $querystr.'<br><br>';
 		
+		$calendar_url = get_permalink();
+		
 		$pageposts = $wpdb->get_results($querystr, OBJECT);
 		
 		global $post;
@@ -525,7 +547,7 @@ class wordpress_events {
 								</div>
 								<script type="text/javascript">
 									var addthis_config = {"data_track_addressbar":false};
-				
+									var addthis_share = {"url":"'. add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) ), $calendar_url) .'"};
 								</script>
 								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
 								<!-- AddThis Button END -->
@@ -578,7 +600,7 @@ class wordpress_events {
 						
 						</div>
 				
-						<a onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '', get_the_title()) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
+						<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
 					
 							.get_the_title().
 					
@@ -702,14 +724,10 @@ class wordpress_events {
 					return false;
 				
 				}
-			
-			</script>
+				
+			</script>';
 		
-		';
-		
-		return $calendar;
-		
-		
+		return $calendar;	
 	
 	}
 	
