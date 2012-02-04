@@ -66,21 +66,25 @@ class wordpress_events {
 	
 	function style_libs(){
 	
-		wp_enqueue_style('jquery.ui.theme', WPE_url . '/js/ui-lightness/jquery-ui-1.8.16.custom.css');
+		wp_enqueue_style('jquery.ui.theme', WPE_url . '/js/smoothness/jquery-ui-1.8.17.custom.css');
 	
 	}
 	
 	function style_libs_front(){
-		
-		wp_enqueue_style('thickbox');
-		
+				
 		wp_enqueue_style('wpe', WPE_url . '/css/wpe.css');
+		
+		wp_enqueue_style('jquery.ui.theme', WPE_url . '/js/smoothness/jquery-ui-1.8.17.custom.css');
 	
 	}
 	
 	function front_js_libs(){
-	
-		wp_enqueue_script( 'thickbox' );
+		
+		wp_enqueue_script('jquery');
+		
+		wp_enqueue_script('jquery-ui-core');
+		
+		wp_enqueue_script('jquery-ui-dialog');
 	
 	}
 	
@@ -418,27 +422,7 @@ class wordpress_events {
 	
 	}
 	
-	function display_calendar($atts){ 
-	
-		if(isset($_GET['idd'])){
-				
-			 echo '<script type="text/javascript">
-						
-				jQuery(document).ready(function() {
-					
-					//tb_show("HAI","#TB_inline?height=500&width=700&inlineId=wwwwwwww", "");
-					
-					//google.maps.event.trigger(map, \'resize\'); 
-						
-					//var darwin = new google.maps.LatLng(' . get_post_meta($_GET['idd'],'lat',true) . ',' . get_post_meta($_GET['idd'],'lng',true) . ');
-						
-					//map.setCenter(darwin);
-					
-				})
-			
-			</script>';
-				
-		}
+	function display_calendar($atts){
 		
 		if(!isset($atts['user'])){
 			$user = 'all';
@@ -535,48 +519,15 @@ class wordpress_events {
 					
 						<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '" style="display:none;">
 						
-							<div class="" style="position: absolute;right: 40px; top: 11px;">
-						
-								<!-- AddThis Button BEGIN -->
-								<div class="addthis_toolbox addthis_default_style ">
-								<a class="addthis_button_facebook" addthis:title="<?php the_title(); ?>"></a>
-								<a class="addthis_button_twitter"></a>
-								<a class="addthis_button_google_plusone" g:plusone:annotation="none"></a>
-								<a class="addthis_button_tumblr"></a>
-								<a class="addthis_button_email"></a>
-								</div>
-								<script type="text/javascript">
-									var addthis_config = {"data_track_addressbar":false};
-									var addthis_share = {"url":"'. add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) ), $calendar_url) .'"};
-								</script>
-								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
-								<!-- AddThis Button END -->
-				
-							</div>
-						
-							<a class="close_x" onclick="self.parent.tb_remove();">X</a>
+							<!--<a class="close_x" onclick="self.parent.tb_remove();">X</a>-->
 							
 							<span class="float-left event_single_left">
 						
-							<h1>' . get_the_title() . '</h1>
+							<!-- <h1>' . get_the_title() . '</h1> 
 							
-							<br>
-							
-							<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
-							
-							<br>
-							
+							<br> -->
+														
 							<h3>' . date('jS \o\f F Y. g.ia', get_post_meta(get_the_ID(),'events_date',true)) . '</h3>';
-							
-							if(has_post_thumbnail()) { 
-								
-								$image_id = get_post_thumbnail_id();  
-								$image_url = wp_get_attachment_image_src($image_id,'full');  
-								$image_url = $image_url[0];  
-						
-								$calendar.= '<br><img class="single_image" src="'. WPE_url .'/timthumb/timthumb.php?src='.$image_url .'&w=280" /><br>';
-									
-							}
 							
 							$calendar.= '<br>
 							
@@ -586,9 +537,41 @@ class wordpress_events {
 							
 							<span class="float-right event_single_right">
 							
-								<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>
+							<div>
+						
+								<!-- AddThis Button BEGIN -->
+								<div class="addthis_toolbox addthis_default_style ">
+									<a class="addthis_button_preferred_1"></a>
+									<a class="addthis_button_preferred_2"></a>
+									<a class="addthis_button_preferred_3"></a>
+									<a class="addthis_button_preferred_4"></a>
+									<a class="addthis_button_compact"></a>
+									<a class="addthis_counter addthis_bubble_style"></a>
+								</div>
+								<script type="text/javascript">
+									var addthis_config = {"data_track_addressbar":false};
+									var addthis_share = {"url":"'. add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())), 't' => urlencode(get_the_title()) ), $calendar_url) .'"};
+								</script>
+								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
+								 <!-- AddThis Button END -->
+				
+							</div>
+							
+								<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
+							
+								<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>';
+								
+								if(has_post_thumbnail()) { 
+								
+									$image_id = get_post_thumbnail_id();  
+									$image_url = wp_get_attachment_image_src($image_id,'full');  
+									$image_url = $image_url[0];  
+						
+									$calendar.= '<br><img class="single_image" src="'. WPE_url .'/timthumb/timthumb.php?src='.$image_url .'&w=280" /><br>';
+									
+								}
 															
-								<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
+								$calendar.= '<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
 								
 								if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
 								
@@ -597,10 +580,12 @@ class wordpress_events {
 								}
 														
 							$calendar.= '</span>
+							
+							<br style="clear:both; width:100%;" />
 						
 						</div>
 				
-						<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '\')" title="' . get_the_title() . '" class="light-blue pointer" >'
+						<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '\', \''. get_the_title() .'\')" title="' . get_the_title() . '" class="light-blue pointer" >'
 					
 							.get_the_title().
 					
@@ -711,15 +696,15 @@ class wordpress_events {
 		
 			<script type="text/javascript">
 			
-				function resize(lat, lng, id){
-				
-					tb_show("HAI","#TB_inline?height=500&width=700&inlineId=" + id + "&modal=true",null);
+				function resize(lat, lng, id, title){
+									
+					jQuery(\'#\' + id).dialog({modal: true, minWidth: 700, minHeight: 500, title: title });
 				
 					google.maps.event.trigger(map, \'resize\'); 
 					
 					var darwin = new google.maps.LatLng(lat,lng);
 					
-					map.setCenter(darwin);
+					//map.setCenter(darwin);
 				
 					return false;
 				
@@ -727,8 +712,22 @@ class wordpress_events {
 				
 			</script>';
 		
+		if(isset($_GET['id'])){
+				
+			 $calendar .= '<script type="text/javascript">
+						
+				jQuery(document).ready(function() {
+					
+					jQuery(\'#'.$_GET['id'].'\').dialog({modal: true, minWidth: 700, minHeight: 500, title: \''. urldecode($_GET['t']) .'\' });
+					
+				})
+			
+			</script>';
+				
+		}
+		
 		return $calendar;	
-	
+			
 	}
 	
 }

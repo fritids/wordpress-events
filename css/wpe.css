@@ -87,7 +87,7 @@ td.calendar-day, td.calendar-day-np {
 }
 
 .event_single_left, .event_single_right{
-	margin-top: 30px;
+	margin-top: 0px;
 	width: 40%;
 	font-family: Verdana;
 }
