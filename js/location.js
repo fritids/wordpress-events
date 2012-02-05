@@ -121,10 +121,10 @@ function codeAddress(update) {
 		    	jQuery('#lat').val(results[0].geometry.location.lat());
 		    	jQuery('#lng').val(results[0].geometry.location.lng());
 		    			    	
-		    	jQuery('#member_info_address').html('');
+		    	/*jQuery('#member_info_address').html('');
 		    	for (i=0;i<results[0].address_components.length;i++){
 		    		jQuery('#member_info_address').html( jQuery('#member_info_address').html() + results[0].address_components[i].long_name + '\r' );
-		    	}
+		    	}*/
 	    	
 	    	}
 		    	
@@ -164,10 +164,10 @@ function codeLatLng(lat, lng) {
     	jQuery('#lat').val(results[0].geometry.location.lat());
     	jQuery('#lng').val(results[0].geometry.location.lng());	    	
 
-    	jQuery('#member_info_address').html('');
+    	/*jQuery('#member_info_address').html('');
     	for (i=0;i<results[0].address_components.length;i++){
     		jQuery('#member_info_address').html( jQuery('#member_info_address').html() + results[0].address_components[i].long_name + '\n' );
-    	}    	
+    	} */   	
     	
       } else {
         alert("Geocoder failed due to: " + status);

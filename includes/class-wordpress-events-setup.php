@@ -550,7 +550,7 @@ class wordpress_events {
 								</div>
 								<script type="text/javascript">
 									var addthis_config = {"data_track_addressbar":false};
-									var addthis_share = {"url":"'. add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())), 't' => urlencode(get_the_title()) ), $calendar_url) .'"};
+									var addthis_share = {"url":"'. $turl = $this->getTinyUrl( add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())), 't' => urlencode(get_the_title()) ), $calendar_url) ) .'"};
 								</script>
 								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
 								 <!-- AddThis Button END -->
@@ -728,6 +728,13 @@ class wordpress_events {
 		
 		return $calendar;	
 			
+	}
+	
+	function getTinyUrl($url) {
+	
+	    $tinyurl = file_get_contents("http://tinyurl.com/api-create.php?url=".$url);
+	    return $tinyurl;
+	    
 	}
 	
 }
