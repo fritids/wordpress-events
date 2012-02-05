@@ -262,7 +262,7 @@ class wordpress_events {
 		
 		$current_user = wp_get_current_user(); ?>
 				
-		<input type="text" id="events_user_id" name="events_user_id" value="<?php echo get_post_meta($post->ID,'events_user_id',true);  ?>" />
+		<input type="hidden" id="events_user_id" name="events_user_id" value="<?php echo get_post_meta($post->ID,'events_user_id',true);  ?>" />
 	
 		<?php
 		
