@@ -33,6 +33,7 @@
 
 table.calendar		{
 	border-left: 1px dotted #EEE; 
+	width: 100%;
 }
 tr.calendar-row	{  }
 td.calendar-day	{ min-height:120px; font-size:11px; position:relative; } 
@@ -64,7 +65,7 @@ div.day-number{
 	width: 20px;
 	text-align: center;
 	top: 0;
-	position: absolute;
+/* 	position: absolute; */
 	right: 0;
 }
 
@@ -73,6 +74,7 @@ td.calendar-day, td.calendar-day-np {
 	padding: 5px;
 	border-bottom: 1px dotted #EEE;
 	border-right: 1px dotted #EEE;
+	position: relative;
 }
 
 .close_x{
@@ -100,4 +102,12 @@ td.calendar-day, td.calendar-day-np {
 .twitter_widget_tweet{
 	border-bottom: 1px dotted #CCC;
 	padding: 10px 0;
+}
+
+.ui-dialog {
+	z-index: 99999 !important;
+}
+
+img.loading{
+	display: block;
 }

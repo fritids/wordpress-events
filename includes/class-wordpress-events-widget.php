@@ -21,7 +21,9 @@ class Events extends WP_Widget {
 		extract( $args );
 		$title = apply_filters( 'widget_title', $instance['title'] );
 		$number = $instance['number'];
-		
+		if($number == ''){
+			$number = 1;
+		}
 		echo $before_widget;
 	
 		?>
@@ -33,7 +35,16 @@ class Events extends WP_Widget {
 					</div>
 					
 					<?php global $post, $wpdb; 
+					
+					$calendar_url = get_bloginfo('url') . '/events/';
+										
+					$month = date("m");
+					$year = date("Y");
+					$list_day = date("d");
 								
+					$start = strtotime($year."-".$month."-".$list_day."-00-00");
+					$end = strtotime($year."-".$month."-".$list_day."-23-59");
+					
 					$querystr = "
 					SELECT $wpdb->posts.* , $wpdb->postmeta.* 
 					FROM $wpdb->posts, $wpdb->postmeta
@@ -41,9 +52,8 @@ class Events extends WP_Widget {
 					AND $wpdb->postmeta.meta_key = 'events_date' 
 					AND $wpdb->posts.post_status = 'publish' 
 					AND $wpdb->posts.post_type = 'events' 
-					AND STR_TO_DATE($wpdb->postmeta.meta_value ,'%d-%m-%Y @ %H:%i') >= NOW() 
-					ORDER BY STR_TO_DATE($wpdb->postmeta.meta_value ,'%d-%m-%Y @ %H:%i') ASC 
-					LIMIT " . $number . " 
+					AND $wpdb->postmeta.meta_value >= " . $start . "
+					LIMIT " . $number . "
 					";
 					
 					//echo $querystr;
@@ -54,85 +64,67 @@ class Events extends WP_Widget {
 					
 					if ($pageposts){
 					
+					$wordpress_events = new wordpress_events;
+										
+					$i = 0;
+					
 						foreach ($pageposts as $post){ ?>
 						
 							<?php setup_postdata($post); ?>
-							
-							<?php echo '<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '" style="display:none;">
-					
-								<a class="close_x" onclick="self.parent.tb_remove();">X</a>
-								
-								<span class="float-left event_single_left">
-							
-								<h1>' . get_the_title() . '</h1>
-								
-								<br>
-								
-								<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
-								
-								<br>
-								
-								<h3>' . get_post_meta(get_the_ID(),'events_date',true) . '</h3>
-								
-								<br>
-								
-								<p>' . get_the_content() . '</p>
-								
-								</span>
-								
-								<span class="float-right event_single_right">
-								
-									<p>'.get_post_meta(get_the_ID(),'venue_location_address',true).'</p>';
-									
-									if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
-									
-										echo '<p><span class="ticket"><a href="' . get_post_meta(get_the_ID(),'events_tickets',true) . '">Tickets for ' . get_the_title() . '</a></span></p>';
-									
-									}
-															
-								echo '</span>
-							
-							</div>'; ?>
 												
-							<span class="event-listing float-left">
+							<span class="gig-listing float-left">
 						
-								<a href="#TB_inline?height=700&width=700&inlineId=<?php echo str_replace(' ', '', get_the_title()); ?>&modal=true" class="light-blue thickbox">
-							
-									<?php the_title(); ?>
-							
-									<br>
-									<span class="black small">
-									
-										<p><?php echo get_post_meta(get_the_ID(),'events_date',true); ?></p>
-										<p><?php the_excerpt(); ?></p>
-								
-								</span>
-								
-								</a>
+								<?php echo '<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . get_the_ID() . '\', \''. get_the_title() .'\', \''.$calendar_url.'\')" title="' . get_the_title() . '" class="light-blue pointer" >'
+					
+							.get_the_title().
+					
+							'</a><img class="loading loading_'.get_the_ID().'" src="'.WPE_url.'/img/loading.gif" alt="Loading…" style="display:none;" /><br>'; ?>
 							
 							</span>
 							
 							<br style="clear:both" />
 							
 							<br>
+							
+							<?php echo '
+		
+								<script type="text/javascript">
+								
+									function resize(lat, lng, id, title, url){
+														
+										ajax_calendar(id, title, url, lat, lng);
+									
+										return false;
+									
+									}
+									
+								</script>';
+							
+							if(isset($_GET['id'])){
+									
+								 echo '<script type="text/javascript">
+											
+									jQuery(document).ready(function() {
+										
+										ajax_calendar(\''.$_GET['id'].'\', \''.urldecode($_GET['t']).'\', \''.get_permalink().'\');
+										
+									})
+								
+								</script>';
+									
+							}
+							
+							$i++;
 						
-						<?php } 
+						} 
 					
 					}
 				
 					wp_reset_query(); ?>
-					
-				<br style="clear:both" />
-				<br>
-				<div id="front_page_section_button">
-					<div class="button">
-						<span class="button_text"><a class="white" href="<?php echo home_url(); ?>/?post_type=events">see all...</a></span>
-					</div>
-				</div>	
 				
 				<br style="clear:both" />
 							
-				<div class="column_bottom"></div>
+<!-- 				<div class="column_bottom"></div> -->
 			</div>		
 		
 		<?php
@@ -151,11 +143,13 @@ class Events extends WP_Widget {
 	function form( $instance ) {
 		if ( $instance ) {
 			$title = esc_attr( $instance[ 'title' ] );
+			$number = esc_attr( $instance[ 'number' ] );
 		}
 		else {
 			$title = __( 'New title', 'theplatform' );
+			$number = '3';
 		}
-		$number = esc_attr( $instance[ 'number' ] );
+		
 		?>
 		<p>
 		<label for="<?php echo $this->get_field_id('title'); ?>"><?php _e('Title:'); ?></label> 
@@ -163,12 +157,11 @@ class Events extends WP_Widget {
 		</p>
 		
 		<p>
-		<label for="<?php echo $this->get_field_id('number'); ?>"><?php _e('Number of upcoming events to show:'); ?></label> 
+		<label for="<?php echo $this->get_field_id('number'); ?>"><?php _e('Number of upcoming gigs to show:'); ?></label> 
 		<input class="widefat" id="<?php echo $this->get_field_id('number'); ?>" name="<?php echo $this->get_field_name('number'); ?>" type="text" value="<?php echo $number; ?>" />
 		</p>
 		<?php 
 	}
 
-} // class Events
-
+} // class Gigs
 ?>

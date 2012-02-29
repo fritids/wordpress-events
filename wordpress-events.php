@@ -4,7 +4,7 @@
 Plugin Name: WordPress Events
 Plugin URI: http://fishcantwhistle.com
 Description: 
-Version: 0.1
+Version: 0.8.4
 Author: Fish Can't Whistle
 */
 

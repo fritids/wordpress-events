@@ -35,6 +35,14 @@ class wordpress_events {
 		add_action( 'save_post', array( &$this, 'save_meta_box_data' ), 1, 2 );
 		
 		add_shortcode( 'calendar' , array( &$this, 'display_calendar' ) );
+		
+		add_action('admin_menu', array( &$this, 'add_pages'));
+		
+		add_action('wp_head', array( &$this, 'my_action_javascript') );
+		
+		add_action('wp_ajax_nopriv_my_special_action', array( &$this, 'my_action_callback') ); 
+		
+		add_action('wp_ajax_my_special_action', array( &$this, 'my_action_callback') ); 
 	
 	}
 	
@@ -79,6 +87,8 @@ class wordpress_events {
 	}
 	
 	function front_js_libs(){
+	
+		wp_enqueue_script('google_maps_api', 'http://maps.google.com/maps/api/js?sensor=true', '', 1.0 );
 		
 		wp_enqueue_script('jquery');
 		
@@ -168,51 +178,30 @@ class wordpress_events {
 	}	
 	
 	function show_events_for_current_user_only($query) {
-	
-/*
-	echo '<pre>';
-	print_r($query);
-	echo '</pre>';
-*/
 	 
 	  if($query->is_admin) {
 	 
-	        if ($query->get('post_type') == 'events'){
-	        
-	        	$current_user = wp_get_current_user();
-	        	
-	        	$admin = false;
-	        	
-	        	foreach($current_user->roles as $key => $val){
-	        		if($val == 'administrator'){
-	        			$admin = true;
-	        		}
-	        	}
-	        	
-	        	if(!$admin){
-			        
-					//$query->set('meta_key', 'events_user_id');
-	          		//$query->set('meta_value', $current_user->ID);
-	        
-	        	}
-	        		        	
-	        	//$time = time()-(2*7*24*60*60);
-	        	
-		        //$query->set('meta_key', 'events_date');
-		        //$query->set('orderby', 'meta_value_num');
-		        //$query->set('order', 'ASC');
-				
-				//$meta = array(
-            	//	array(
-            	//		'key' => 'events_date',
-            	//		'value' => $time,
-            	//		'compare' => '>='
-            	//	)
-        		//);
-        		
-        		//$query->set('meta_query',$meta );
+        if ($query->get('post_type') == 'events'){
+        
+        	$current_user = wp_get_current_user();
+        	
+        	$admin = false;
+        	
+        	foreach($current_user->roles as $key => $val){
+        		if($val == 'administrator'){
+        			$admin = true;
+        		}
+        	}
+        	
+        	if(!$admin){
 		        
-	        }
+				$query->set('meta_key', 'events_user_id');
+          		$query->set('meta_value', $current_user->ID);
+        
+        	}
+	        
+        }
+        
 	  }
 	  
 	  return $query;
@@ -232,10 +221,11 @@ class wordpress_events {
     	}
     	
     	if(!$admin){
-	
     		unset($posts_count_disp['all']);
    			unset($posts_count_disp['publish']);
    			unset($posts_count_disp['draft']);
+   			unset($posts_count_disp['trash']);
+   			unset($posts_count_disp['mine']);
  
  		}
  
@@ -260,9 +250,17 @@ class wordpress_events {
 	
 		global $post;
 		
-		$current_user = wp_get_current_user(); ?>
+		$current_user = wp_get_current_user(); 
+		
+		if(get_post_meta($post->ID,'events_user_id',true) == ''){
+			$userID = $current_user->ID;
+		}else{
+			$userID = get_post_meta($post->ID,'events_user_id',true);
+		}
+		
+		?>
 				
-		<input type="hidden" id="events_user_id" name="events_user_id" value="<?php echo get_post_meta($post->ID,'events_user_id',true);  ?>" />
+		<input type="hidden" id="events_user_id" name="events_user_id" value="<?php echo $userID  ?>" />
 	
 		<?php
 		
@@ -277,6 +275,8 @@ class wordpress_events {
 				separator: ' @ ',
 				dateFormat: 'dd-mm-yy'
 			});
+			jQuery(".datepicker").datetimepicker('setDate', (new Date()) );
+			jQuery('#ui-datepicker-div').hide();
 	  	});
 	  </script>
 
@@ -390,10 +390,12 @@ class wordpress_events {
 		  		return;
 		  		
 		  	update_post_meta($post_id, 'venue_location_address', $_POST['venue_location_address']);
-		  	
-		  	$date = DateTime::createFromFormat('d-m-Y @ H:i', $_POST['events_date']);
 		  			  	
-		  	update_post_meta($post_id, 'events_date', strtotime($date->format(DATE_RFC3339)));
+			list($day, $month, $year, $hours, $minutes) = sscanf($_POST['events_date'], '%02d-%02d-%04d @ %02d:%02d');
+			
+			$date = new DateTime("$year-$month-$day $hours:$minutes");
+		  	
+		  	update_post_meta($post_id, 'events_date', strtotime($date->format('r')));
 		  	
 		  	update_post_meta($post_id, 'events_tickets', $_POST['events_tickets']);
 		  	
@@ -423,6 +425,12 @@ class wordpress_events {
 	}
 	
 	function display_calendar($atts){
+	
+		$display_author = get_option('display_author');
+		
+		$author_meta = get_option('author_meta');
+		
+		$prepend_author = get_option('prepend_author');
 		
 		if(!isset($atts['user'])){
 			$user = 'all';
@@ -440,20 +448,18 @@ class wordpress_events {
 			$year = intval($_GET['yy']);
 		}else{
 			$year = date("Y");
-		} ?>
-	
-		<span class="events_date_now"><?php echo date("F Y",strtotime($year."-".$month."-01")); ?></span>
-	
-		<span class="float-left calendar_nav"><a href="<?php echo add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 -1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 -1 months")) ), the_permalink() ); ?>"><< <?php echo date("F Y",strtotime($year."-".$month."-01 -1 months")); ?></a></span>
+		} 
 		
-		<span class="float-right calendar_nav"><a href="<?php echo add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 +1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 +1 months")) ), the_permalink() ); ?>"><?php echo date("F Y",strtotime($year."-".$month."-01 +1 months")) ?> >></a></span>
+		$calendar = '<span class="events_date_now">' . date("F Y",strtotime($year."-".$month."-01")) . '</span>
+	
+		<span class="float-left calendar_nav"><a href="' . add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 -1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 -1 months")) ), get_permalink() ) . '"><< ' . date("F Y",strtotime($year."-".$month."-01 -1 months")) . '</a></span>
 		
-		<br style="clear:both;">
-
-		<?php 
+		<span class="float-right calendar_nav"><a href="' . add_query_arg( array( 'mm' => date('m',strtotime($year."-".$month."-01 +1 months")), 'yy' => date('Y',strtotime($year."-".$month."-01 +1 months")) ), get_permalink() ) . '">' . date("F Y",strtotime($year."-".$month."-01 +1 months")) . ' >></a></span>
+		
+		<br style="clear:both;">';
 		
 		/* draw table */
-		$calendar = '<table cellpadding="0" cellspacing="0" class="calendar">';
+		$calendar .= '<table cellpadding="0" cellspacing="0" class="calendar">';
 		
 		/* table headings */
 		$headings = array('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday');
@@ -514,149 +520,70 @@ class wordpress_events {
 				setup_postdata($post); 
 				
 				if($user == 'all' || $user == get_post_meta(get_the_ID(),'events_user_id',true)){
+				
+					$user_data = get_userdata( get_post_meta(get_the_ID(),'events_user_id',true) );
 									
 					$calendar.= '<span class="float-left">
-					
-						<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '" style="display:none;">
 						
-							<!--<a class="close_x" onclick="self.parent.tb_remove();">X</a>-->
-							
-							<span class="float-left event_single_left">
-						
-							<!-- <h1>' . get_the_title() . '</h1> 
-							
-							<br> -->
-														
-							<h3>' . date('jS \o\f F Y. g.ia', get_post_meta(get_the_ID(),'events_date',true)) . '</h3>';
-							
-							$calendar.= '<br>
-							
-							<p>' . nl2br( get_the_content() ) . '</p>
-							
-							</span>
-							
-							<span class="float-right event_single_right">
-							
-							<div>
-						
-								<!-- AddThis Button BEGIN -->
-								<div class="addthis_toolbox addthis_default_style ">
-									<a class="addthis_button_preferred_1"></a>
-									<a class="addthis_button_preferred_2"></a>
-									<a class="addthis_button_preferred_3"></a>
-									<a class="addthis_button_preferred_4"></a>
-									<a class="addthis_button_compact"></a>
-									<a class="addthis_counter addthis_bubble_style"></a>
-								</div>
-								<script type="text/javascript">
-									var addthis_config = {"data_track_addressbar":false};
-									var addthis_share = {"url":"'. $turl = $this->getTinyUrl( add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())), 't' => urlencode(get_the_title()) ), $calendar_url) ) .'"};
-								</script>
-								<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4f0f005c74986ffa"></script>
-								 <!-- AddThis Button END -->
-				
-							</div>
-							
-								<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
-							
-								<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>';
-								
-								if(has_post_thumbnail()) { 
-								
-									$image_id = get_post_thumbnail_id();  
-									$image_url = wp_get_attachment_image_src($image_id,'full');  
-									$image_url = $image_url[0];  
-						
-									$calendar.= '<br><img class="single_image" src="'. WPE_url .'/timthumb/timthumb.php?src='.$image_url .'&w=280" /><br>';
-									
-								}
-															
-								$calendar.= '<div id="map_canvas' . $i . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
-								
-								if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
-								
-									$calendar.= '<p><span class="ticket"><a href="' . get_post_meta(get_the_ID(),'events_tickets',true) . '">Tickets for ' . get_the_title() . '</a></span></p>';
-								
-								}
-														
-							$calendar.= '</span>
-							
-							<br style="clear:both; width:100%;" />
-						
-						</div>
-				
-						<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '\', \''. get_the_title() .'\')" title="' . get_the_title() . '" class="light-blue pointer" >'
+						<a id="'.get_the_ID().'" onclick="resize(\'' . get_post_meta($post->ID,'lat',true) . '\', \'' . get_post_meta($post->ID,'lng',true) . '\', \'' . get_the_ID() . '\', \''. get_the_title() .'\', \''.$calendar_url.'\')" title="' . get_the_title() . '" class="light-blue pointer" >'
 					
 							.get_the_title().
 					
 							'<br>
 							<span class="grey_666 small">
 							
-								<p>'.get_post_meta(get_the_ID(),'events_venue_name',true).'</p>
+								'.get_post_meta(get_the_ID(),'events_venue_name',true).'
 													
-							</span>
+							</span>';
+							
+							if(($display_author == 'all') || ($display_author == 'parent' && $user == 'all')){
+								
+								$calendar .= '<br><span class="wordpress_calendar_author">' . $prepend_author;
+								
+								switch($author_meta){
+								
+									case 'first_last':
+									
+										$calendar .= $user_data->first_name . ' ' . $user_data->last_name;
+									
+									break;
+									
+									case 'first':
+									
+										$calendar .= $user_data->first_name;
+									
+									break;
+									
+									case 'username':
+									
+										$calendar .= $user_data->user_login;
+									
+									break;
+									
+									case 'email':
+									
+										$calendar .= $user_data->user_email;
+									
+									break;
+									
+									default:
+									
+										$calendar .= $user_data->user_login;
+									
+									break;
+								
+								}
+							
+							}
 						
-						</a>
+						$calendar .= '</span></a><img class="loading loading_'.get_the_ID().'" src="'.WPE_url.'/img/loading.gif" alt="Loading…" style="display:none;" />
 					
 					</span>
 					
 					<br style="clear:both" />
 					
 					<br>';
-			
-					if(get_post_meta($post->ID,'show_map',true) == 'true'){ 
-					
-						$calendar .= '
-					
-						<input type="hidden" name="lng" id="lng' . $i . '" value="' . get_post_meta($post->ID,'lng',true) . '" />
-						<input type="hidden" name="lat" id="lat' . $i . '" value="' . get_post_meta($post->ID,'lat',true) . '" />
-					
-						<script src="http://maps.google.com/maps/api/js?sensor=true" type="text/javascript"></script>
-						
-						<script type="text/javascript">
-						
-							var geocoder;
-							var map;
-							var marker;
-							var markersArray = [];
-						
-							geocoder = new google.maps.Geocoder();
 							
-								var latlng = new google.maps.LatLng(jQuery(\'#lat' . $i .'\').val(),jQuery(\'#lng' . $i . '\').val());
-							
-								var myOptions = {
-						  			zoom: 15,
-						  			center: latlng,
-						  			mapTypeControl: false,
-						  			mapTypeId: google.maps.MapTypeId.ROADMAP
-								}
-								map = new google.maps.Map(document.getElementById("map_canvas' . $i . '"), myOptions);
-							    
-							    geocoder.geocode({\'latLng\': latlng}, function(results, status) {
-							      if (status == google.maps.GeocoderStatus.OK) {
-							  		//console.log(results);
-							  			
-									if (markersArray){
-								        for (i in markersArray){
-								            markersArray[i].setMap(null);
-								        }
-								    }
-	
-							    	var marker = new google.maps.Marker({
-							        	map: map, 
-							        	position: results[0].geometry.location   
-							    	});
-							    	markersArray.push(marker);     	
-							    	
-							      } else {
-							        alert("Geocoder failed due to: " + status);
-							      }
-								});
-													
-						</script>';
-					
-					}
-				
 				}
 				
 				$i++;
@@ -692,19 +619,17 @@ class wordpress_events {
 		
 		$calendar.= '</table>';
 		
+		$calendar .= '<div id="wordpress_events_ajax_div" style="display:none;"></div>';
+		
 		$calendar .= '
 		
 			<script type="text/javascript">
 			
-				function resize(lat, lng, id, title){
+				function resize(lat, lng, id, title, url){
 									
-					jQuery(\'#\' + id).dialog({modal: true, minWidth: 700, minHeight: 500, title: title });
-				
-					google.maps.event.trigger(map, \'resize\'); 
+					//jQuery(\'#\' + id).dialog({modal: true, minWidth: 700, minHeight: 500, title: title });
 					
-					var darwin = new google.maps.LatLng(lat,lng);
-					
-					//map.setCenter(darwin);
+					ajax_calendar(id, title, url, lat, lng);
 				
 					return false;
 				
@@ -718,7 +643,9 @@ class wordpress_events {
 						
 				jQuery(document).ready(function() {
 					
-					jQuery(\'#'.$_GET['id'].'\').dialog({modal: true, minWidth: 700, minHeight: 500, title: \''. urldecode($_GET['t']) .'\' });
+					//jQuery(\'#'.$_GET['id'].'\').dialog({modal: true, minWidth: 700, minHeight: 500, title: \''. urldecode($_GET['t']) .', zIndex: 5000\' });
+					
+					ajax_calendar(\''.$_GET['id'].'\', \''.urldecode($_GET['t']).'\', \''.get_permalink().'\');
 					
 				})
 			
@@ -737,6 +664,328 @@ class wordpress_events {
 	    
 	}
 	
+	function add_pages(){
+	
+		add_options_page('WordPress Events Settings', 'WordPress Events', 'manage_options', 'wordpress-events', array( &$this, 'settings_page'));
+	
+	}
+	
+	function settings_page(){
+	
+		if(isset($_POST['submit_wordpress_events_settings'])){
+			
+			$updated = false;
+			
+			if(update_option('display_author', $_POST['display_author'])){
+				$updated = true;
+			}
+			
+			if(update_option('author_meta', $_POST['author_meta'])){
+				$updated = true;
+			}
+			
+			if(update_option('prepend_author', $_POST['prepend_author'])){
+				$updated = true;
+			}
+			
+			if($updated){
+			
+				echo '<div class="updated">Settings saved</div>';
+			
+			}
+			
+		}
+		
+		$display_author = get_option('display_author');
+		
+		$author_meta = get_option('author_meta');
+		
+		$prepend_author = get_option('prepend_author');
+		
+		?>
+
+		<div class="wrap">
+		    		    
+	    	<h2><img src="<?php echo  WPE_url.'/img/events_large.png'; ?>" /> WordPress Events - Settings</h2>   
+	    	
+	    	<form method="POST" action="<?php echo admin_url( 'options-general.php?page=wordpress-events' ); ?>"> 
+	    	
+	    		<table class="form-table">
+	    		
+					<tbody>
+					
+						<tr valign="top">
+						
+							<th scope="row">
+							
+								<label for="display_author">Display the author for these calendars: </label>
+								
+							</th>
+							
+							<td>
+							
+					    		<select name="display_author">
+					    		
+					    			<option <?php if($display_author == 'none'){ echo 'selected="selected" '; } ?>value="none">None</option>
+					    			
+					    			<option <?php if($display_author == 'parent'){ echo 'selected="selected" '; } ?>value="parent">A parent calendar that shows events from all users</option>
+					    			
+					    			<option <?php if($display_author == 'all'){ echo 'selected="selected" '; } ?>value="all">All</option>
+					    		
+					    		</select>
+								
+							</td>
+						
+						</tr>
+						
+						<tr valign="top">
+						
+							<th scope="row">
+							
+								<label for="display_author">When displaying the author show: </label>
+								
+							</th>
+							
+							<td>
+							
+					    		<select name="author_meta">
+					    		
+					    			<option <?php if($author_meta == 'first_last'){ echo 'selected="selected" '; } ?>value="first_last">First name Last name</option>
+					    			
+					    			<option <?php if($author_meta == 'first'){ echo 'selected="selected" '; } ?>value="first">First name</option>
+					    			
+					    			<option <?php if($author_meta == 'username'){ echo 'selected="selected" '; } ?>value="username">Username</option>
+					    			
+					    			<option <?php if($author_meta == 'email'){ echo 'selected="selected" '; } ?>value="email">Email address</option>
+					    		
+					    		</select>
+								
+							</td>
+						
+						</tr>
+						
+						<tr valign="top">
+						
+							<th scope="row">
+							
+								<label for="link_word">Prepend the author name with this word/phrase: </label>
+								
+							</th>
+							
+							<td>
+							
+					    		<input type="text" name="prepend_author" value="<?php echo $prepend_author; ?>">
+								
+							</td>
+						
+						</tr>
+					
+					</tbody>
+				
+				</table>
+				
+				<p class="submit">
+				
+					<input type="submit" name="submit_wordpress_events_settings" id="submit" class="button-primary" value="Save Changes">
+					
+				</p>
+	    		
+	    	</form>
+				    
+		</div>
+	
+	<?php }
+	
+	function my_action_javascript() {
+		?>
+		<script type="text/javascript" >
+		function ajax_calendar(id, title, url, lat, lng) { 
+		
+		jQuery('img.loading_'+id).show();
+		  
+		var data = {
+			action: 'my_special_action',
+			id: id,
+			title: title,
+			url: url,
+			lat: lat,
+			lng: lng
+		};
+	
+		// since 2.8 ajaxurl is always defined in the admin header and points to admin-ajax.php
+		jQuery.post("<?php bloginfo( 'wpurl' ); ?>/wp-admin/admin-ajax.php", data, function(response) {
+			jQuery('#wordpress_events_ajax_div').html(response);
+			jQuery('#wordpress_events_ajax_div').dialog({modal: true, minWidth: 700, minHeight: 500, title: title, zIndex: 5000 });
+			jQuery('img.loading_'+id).hide();
+
+			//alert('Got this from the server: ' + response);
+		});
+		  
+		};
+		</script>
+		<?php
+	}
+	
+	function my_action_callback() { 
+		global $post;
+  		$id = $_POST['id'];
+  		$url = $_POST['url'];
+  		$lat = $_POST['lat'];
+  		$lng = $_POST['lng'];
+  		$post = get_post( $id);
+  		setup_postdata(get_post( $post));
+  		
+  				$display_author = get_option('display_author');
+		
+		$author_meta = get_option('author_meta');
+		
+		$prepend_author = get_option('prepend_author');
+		
+		if(!isset($atts['user'])){
+			$user = 'all';
+		}else{
+			$user = $atts['user'];
+		}
+			
+		if(isset($_GET['mm'])){
+			$month = intval($_GET['mm']);
+		}else{
+			$month = date("m");
+		}
+		
+		if(isset($_GET['yy'])){
+			$year = intval($_GET['yy']);
+		}else{
+			$year = date("Y");
+		} 
+		
+  		$calendar = '<div id="' . str_replace(' ', '_' , preg_replace("/[^a-zA-Z0-9\s]/", "", get_the_title())) . '"">
+													
+			<span class="float-left event_single_left">
+																							
+			<h3>' . date('jS \o\f F Y. g.ia', get_post_meta(get_the_ID(),'events_date',true)) . '</h3>';
+			
+			$calendar.= '<br>
+			
+			<p>' . nl2br( get_the_content() ) . '</p>
+			
+			</span>
+			
+			<span class="float-right event_single_right">
+			
+			<div>
+		
+				<!-- AddThis Button BEGIN -->
+				<div class="addthis_toolbox addthis_default_style ">
+					<a class="addthis_button_preferred_1"></a>
+					<a class="addthis_button_preferred_2"></a>
+					<a class="addthis_button_preferred_3"></a>
+					<a class="addthis_button_preferred_4"></a>
+					<a class="addthis_button_compact"></a>
+					<a class="addthis_counter addthis_bubble_style"></a>
+				</div>
+				<script type="text/javascript">
+					var addthis_config = {"data_track_addressbar":false};
+					var addthis_share = {"url":"'. $turl = $this->getTinyUrl( add_query_arg( array( 'mm' => $month, 'yy' => $year, 'id' => $id, 't' => urlencode(get_the_title()) ), $url) ) .'"};
+				</script>
+				<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js?domready=1#pubid=ra-4f0f005c74986ffa"></script>
+				 <!-- AddThis Button END -->
+	
+			</div>';
+			
+				if(function_exists("has_post_thumbnail") && has_post_thumbnail()) { 
+				
+					$image_id = get_post_thumbnail_id();  
+					$image_url = wp_get_attachment_image_src($image_id,'full');  
+					$image_url = $image_url[0];  
+		
+					$calendar.= '<br><img class="single_image" src="'. WPE_url .'/timthumb/timthumb.php?src='.$image_url .'&w=280" /><br>';
+					
+				}
+			
+				$calendar .= '<h2>' . get_post_meta(get_the_ID(),'events_venue_name',true) . '</h2>
+			
+				<p>'. nl2br(get_post_meta(get_the_ID(),'venue_location_address',true) ).'</p>';
+											
+				$calendar.= '<div id="map_canvas' . $id . '" style="float:left; width:274px; height:247px; margin-right: 10px;"></div>';
+				
+				if(get_post_meta(get_the_ID(),'events_tickets',true) != ''){
+				
+					$calendar.= '<p><span class="ticket"><a href="' . get_post_meta(get_the_ID(),'events_tickets',true) . '">Tickets for ' . get_the_title() . '</a></span></p>';
+				
+				}
+										
+			$calendar.= '</span>
+			
+			<br style="clear:both; width:100%;" />
+		
+		</div>';
+						
+		if(get_post_meta($post->ID,'show_map',true) == 'true'){ 
+	
+			$calendar .= '
+		
+			<input type="hidden" name="lng" id="lng' . $id . '" value="' . get_post_meta($post->ID,'lng',true) . '" />
+			<input type="hidden" name="lat" id="lat' . $id . '" value="' . get_post_meta($post->ID,'lat',true) . '" />
+		
+			<script src="http://maps.google.com/maps/api/js?sensor=true" type="text/javascript"></script>
+			
+			<script type="text/javascript">
+			
+				var geocoder;
+				var map;
+				var marker;
+				var markersArray = [];
+			
+				geocoder = new google.maps.Geocoder();
+				
+					var latlng = new google.maps.LatLng(jQuery(\'#lat' . $id .'\').val(),jQuery(\'#lng' . $id . '\').val());
+				
+					var myOptions = {
+			  			zoom: 15,
+			  			center: latlng,
+			  			mapTypeControl: false,
+			  			mapTypeId: google.maps.MapTypeId.ROADMAP
+					}
+					map = new google.maps.Map(document.getElementById("map_canvas' . $id . '"), myOptions);
+				    
+				    geocoder.geocode({\'latLng\': latlng}, function(results, status) {
+				      if (status == google.maps.GeocoderStatus.OK) {
+				  		//console.log(results);
+				  			
+						if (markersArray){
+					        for (i in markersArray){
+					            markersArray[i].setMap(null);
+					        }
+					    }
+
+				    	var marker = new google.maps.Marker({
+				        	map: map, 
+				        	position: results[0].geometry.location   
+				    	});
+				    	markersArray.push(marker);     	
+				    	
+				      } else {
+				        alert("Geocoder failed due to: " + status);
+				      }
+					});
+					
+					google.maps.event.trigger(map, \'resize\'); 
+					
+					var darwin = new google.maps.LatLng('.$lat.','.$lng.');
+					
+					map.setCenter(darwin);
+										
+			</script>';
+		
+		}
+						
+		echo $calendar;
+		
+		die();
+		
+	} 
+	
 }
 
 remove_role('personal_calendar');
@@ -748,7 +997,9 @@ add_role('personal_calendar', 'Calendar User', array(
     'edit_calendar' => true,
     'edit_calendars' => true,
     'edit_others_posts' => false,
-    'publish_calendars' => true
+    'edit_others_calendars' => false,
+    'publish_calendars' => true,
+    'delete_calendar' => true
 ));
 
 //grab the admin role
@@ -767,5 +1018,6 @@ $adapt_admin -> add_cap('publish_calendars');
 $adapt_admin -> add_cap('read_calendar');
 $adapt_admin -> add_cap('read_private_calendars'); 
 $adapt_admin -> add_cap('edit_others_calendars'); 
+$adapt_admin -> add_cap('delete_others_calendars'); 
 
 ?>
