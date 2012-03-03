@@ -275,8 +275,10 @@ class wordpress_events {
 				separator: ' @ ',
 				dateFormat: 'dd-mm-yy'
 			});
-			jQuery(".datepicker").datetimepicker('setDate', (new Date()) );
-			jQuery('#ui-datepicker-div').hide();
+			<?php if(get_post_meta($post->ID,'events_date',true) == ''){ ?>
+				jQuery(".datepicker").datetimepicker('setDate', (new Date()) );
+				jQuery('#ui-datepicker-div').hide();
+			<?php } ?>
 	  	});
 	  </script>
 
